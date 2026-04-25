@@ -1,0 +1,12 @@
+{
+  "name": "gezeiten-web",
+  "version": "0.1.0",
+  "description": "Gezeiten Studio website — Webflow + Barba.js + GSAP (Osmo style, no build)",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write \"*.{js,css,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}
