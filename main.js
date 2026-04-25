@@ -1,6 +1,5 @@
 // -----------------------------------------
-// GEZEITEN — OSMO PAGE TRANSITION BOILERPLATE
-// Parallax slide transition (current up, next from below, dark overlay)
+// OSMO PAGE TRANSITION BOILERPLATE
 // -----------------------------------------
 
 gsap.registerPlugin(CustomEase);
@@ -16,8 +15,8 @@ const hasScrollTrigger = typeof window.ScrollTrigger !== "undefined";
 
 const rmMQ = window.matchMedia("(prefers-reduced-motion: reduce)");
 let reducedMotion = rmMQ.matches;
-rmMQ.addEventListener?.("change", e => (reducedMotion = e.matches));
-rmMQ.addListener?.(e => (reducedMotion = e.matches));
+rmMQ.addEventListener?.("change", (e) => (reducedMotion = e.matches));
+rmMQ.addListener?.((e) => (reducedMotion = e.matches));
 
 const has = (s) => !!nextPage.querySelector(s);
 
@@ -28,8 +27,6 @@ CustomEase.create("osmo", "0.625, 0.05, 0, 1");
 CustomEase.create("parallax", "0.7, 0.05, 0.13, 1");
 gsap.defaults({ ease: "osmo", duration: durationDefault });
 
-
-
 // -----------------------------------------
 // FUNCTION REGISTRY
 // -----------------------------------------
@@ -39,24 +36,22 @@ function initOnceFunctions() {
   if (onceFunctionsInitialized) return;
   onceFunctionsInitialized = true;
 
-  // Runs once on first load — global stuff that survives transitions
-  // if (has('[data-nav]')) initNav();
-  // if (has('[data-cursor]')) initCursor();
+  // Runs once on first load
+  // if (has('[data-something]')) initSomething();
 }
 
 function initBeforeEnterFunctions(next) {
   nextPage = next || document;
 
-  // Runs before the enter animation (DOM is ready, animations not started)
+  // Runs before the enter animation
   // if (has('[data-something]')) initSomething();
 }
 
 function initAfterEnterFunctions(next) {
   nextPage = next || document;
 
-  // Runs after enter animation completes (page is settled)
-  // if (has('[data-reveal]')) initReveal();
-  // if (has('[data-home="hero"]')) initHomeHero();
+  // Runs after enter animation completes
+  // if (has('[data-something]')) initSomething();
 
   if (hasLenis) {
     lenis.resize();
@@ -67,10 +62,8 @@ function initAfterEnterFunctions(next) {
   }
 }
 
-
-
 // -----------------------------------------
-// PAGE TRANSITIONS — Parallax Slide
+// PAGE TRANSITIONS
 // -----------------------------------------
 
 function runPageOnceAnimation(next) {
@@ -90,54 +83,50 @@ function runPageLeaveAnimation(current, next) {
   const tl = gsap.timeline({
     onComplete: () => {
       current.remove();
-      // Reset transition layer so it doesn't sit above next page
-      if (transitionWrap) {
-        gsap.set(transitionWrap, { clearProps: "zIndex" });
-      }
-    }
+    },
   });
 
   if (reducedMotion) {
     return tl.set(current, { autoAlpha: 0 });
   }
 
-  // Pin current page so it can translate without affecting next page's layout
-  tl.set(current, {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1
-  }, 0);
-
-  if (transitionWrap) {
-    tl.set(transitionWrap, { zIndex: 2 }, 0);
+  if (!transitionWrap || !transitionDark) {
+    return tl.to(current, { autoAlpha: 0, duration: 0.4 });
   }
 
-  // Dark overlay fades in
-  if (transitionDark) {
-    tl.fromTo(transitionDark, {
-      autoAlpha: 0
-    }, {
+  tl.set(transitionWrap, {
+    zIndex: 2,
+  });
+
+  tl.fromTo(
+    transitionDark,
+    {
+      autoAlpha: 0,
+    },
+    {
       autoAlpha: 0.8,
       duration: 1.2,
-      ease: "parallax"
-    }, 0);
-  }
+      ease: "parallax",
+    },
+    0
+  );
 
-  // Current page slides up (parallax — slower than incoming page)
-  tl.fromTo(current, {
-    y: "0vh"
-  }, {
-    y: "-25vh",
-    duration: 1.2,
-    ease: "parallax"
-  }, 0);
+  tl.fromTo(
+    current,
+    {
+      y: "0vh",
+    },
+    {
+      y: "-25vh",
+      duration: 1.2,
+      ease: "parallax",
+    },
+    0
+  );
 
-  // Reset dark overlay AFTER the leave is done (was the bug in original)
-  if (transitionDark) {
-    tl.set(transitionDark, { autoAlpha: 0 });
-  }
+  tl.set(transitionDark, {
+    autoAlpha: 0,
+  });
 
   return tl;
 }
@@ -146,54 +135,50 @@ function runPageEnterAnimation(next) {
   const tl = gsap.timeline();
 
   if (reducedMotion) {
-    tl.set(next, { autoAlpha: 1, y: 0 });
+    tl.set(next, { autoAlpha: 1 });
     tl.add("pageReady");
     tl.call(resetPage, [next], "pageReady");
-    return new Promise(resolve => tl.call(resolve, null, "pageReady"));
+    return new Promise((resolve) => tl.call(resolve, null, "pageReady"));
   }
-
-  // Pre-position next BEFORE the enter starts (avoids flash)
-  // beforeEnter already set position:fixed; we add the offset + z-index
-  tl.set(next, {
-    zIndex: 3,
-    y: "100vh",
-    autoAlpha: 1
-  }, 0);
 
   tl.add("startEnter", 0);
 
-  tl.fromTo(next, {
-    y: "100vh"
-  }, {
-    y: "0vh",
-    duration: 1.2,
-    ease: "parallax",
-    clearProps: "zIndex"
-  }, "startEnter");
+  tl.set(next, {
+    zIndex: 3,
+  });
+
+  tl.fromTo(
+    next,
+    {
+      y: "100vh",
+    },
+    {
+      y: "0vh",
+      duration: 1.2,
+      clearProps: "all",
+      ease: "parallax",
+    },
+    "startEnter"
+  );
 
   tl.add("pageReady");
   tl.call(resetPage, [next], "pageReady");
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     tl.call(resolve, null, "pageReady");
   });
 }
-
-
 
 // -----------------------------------------
 // BARBA HOOKS + INIT
 // -----------------------------------------
 
-barba.hooks.beforeEnter(data => {
-  // Position new container on top so it can slide in from below
+barba.hooks.beforeEnter((data) => {
   gsap.set(data.next.container, {
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
-    autoAlpha: 0,
-    y: "100vh"
   });
 
   if (lenis && typeof lenis.stop === "function") {
@@ -206,15 +191,15 @@ barba.hooks.beforeEnter(data => {
 
 barba.hooks.afterLeave(() => {
   if (hasScrollTrigger) {
-    ScrollTrigger.getAll().forEach(trigger => trigger.kill());
+    ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
   }
 });
 
-barba.hooks.enter(data => {
+barba.hooks.enter((data) => {
   initBarbaNavUpdate(data);
 });
 
-barba.hooks.afterEnter(data => {
+barba.hooks.afterEnter((data) => {
   initAfterEnterFunctions(data.next.container);
 
   if (hasLenis) {
@@ -228,7 +213,7 @@ barba.hooks.afterEnter(data => {
 });
 
 barba.init({
-  debug: true, // Set to false in production
+  debug: true, // Set to 'false' in production
   timeout: 7000,
   preventRunning: true,
   transitions: [
@@ -238,6 +223,7 @@ barba.init({
 
       async once(data) {
         initOnceFunctions();
+
         return runPageOnceAnimation(data.next.container);
       },
 
@@ -247,12 +233,10 @@ barba.init({
 
       async enter(data) {
         return runPageEnterAnimation(data.next.container);
-      }
-    }
+      },
+    },
   ],
 });
-
-
 
 // -----------------------------------------
 // GENERIC + HELPERS
@@ -261,12 +245,12 @@ barba.init({
 const themeConfig = {
   light: {
     nav: "dark",
-    transition: "light"
+    transition: "light",
   },
   dark: {
     nav: "light",
-    transition: "dark"
-  }
+    transition: "dark",
+  },
 };
 
 function applyThemeFrom(container) {
@@ -274,13 +258,12 @@ function applyThemeFrom(container) {
   const config = themeConfig[pageTheme] || themeConfig.light;
 
   document.body.dataset.pageTheme = pageTheme;
-
-  const transitionEl = document.querySelector('[data-theme-transition]');
+  const transitionEl = document.querySelector("[data-theme-transition]");
   if (transitionEl) {
     transitionEl.dataset.themeTransition = config.transition;
   }
 
-  const nav = document.querySelector('[data-theme-nav]');
+  const nav = document.querySelector("[data-theme-nav]");
   if (nav) {
     nav.dataset.themeNav = config.nav;
   }
@@ -308,7 +291,7 @@ function initLenis() {
 
 function resetPage(container) {
   window.scrollTo(0, 0);
-  gsap.set(container, { clearProps: "position,top,left,right,zIndex,y,transform" });
+  gsap.set(container, { clearProps: "position,top,left,right" });
 
   if (hasLenis) {
     lenis.resize();
@@ -317,7 +300,8 @@ function resetPage(container) {
 }
 
 function debounceOnWidthChange(fn, ms) {
-  let last = innerWidth, timer;
+  let last = innerWidth;
+  let timer;
   return function (...args) {
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -330,28 +314,26 @@ function debounceOnWidthChange(fn, ms) {
 }
 
 function initBarbaNavUpdate(data) {
-  const tpl = document.createElement('template');
+  var tpl = document.createElement("template");
   tpl.innerHTML = data.next.html.trim();
-  const nextNodes = tpl.content.querySelectorAll('[data-barba-update]');
-  const currentNodes = document.querySelectorAll('nav [data-barba-update]');
+  var nextNodes = tpl.content.querySelectorAll("[data-barba-update]");
+  var currentNodes = document.querySelectorAll("nav [data-barba-update]");
 
-  currentNodes.forEach((curr, index) => {
-    const next = nextNodes[index];
+  currentNodes.forEach(function (curr, index) {
+    var next = nextNodes[index];
     if (!next) return;
 
-    const newStatus = next.getAttribute('aria-current');
+    var newStatus = next.getAttribute("aria-current");
     if (newStatus !== null) {
-      curr.setAttribute('aria-current', newStatus);
+      curr.setAttribute("aria-current", newStatus);
     } else {
-      curr.removeAttribute('aria-current');
+      curr.removeAttribute("aria-current");
     }
 
-    const newClassList = next.getAttribute('class') || '';
-    curr.setAttribute('class', newClassList);
+    var newClassList = next.getAttribute("class") || "";
+    curr.setAttribute("class", newClassList);
   });
 }
-
-
 
 // -----------------------------------------
 // YOUR FUNCTIONS GO BELOW HERE
