@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Example – Barba shell</title>
+    <link rel="stylesheet" href="./transitions.css" />
+  </head>
+  <body data-barba="wrapper">
+    <!-- Stays mounted; not part of Barba container -->
+    <nav aria-label="Main">
+      <a href="/" data-barba-update aria-current="page">Home</a>
+      <a href="/about" data-barba-update>About</a>
+    </nav>
+
+    <div data-transition-wrap>
+      <div data-transition-dark></div>
+    </div>
+
+    <div data-barba="container" data-barba-namespace="home">
+      <main>
+        <div
+          data-copy-wrapper
+          data-copy-variant="rotate"
+          data-copy-split="chars"
+        >
+          <h1>Hero<br />Title</h1>
+        </div>
+      </main>
+    </div>
+
+    <!-- Your bundled entry (e.g. main.ts): import { initApp } from "./app"; initApp({ debug: false }); -->
+  </body>
+</html>

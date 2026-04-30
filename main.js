@@ -1,8 +1,16 @@
 // -----------------------------------------
 // OSMO PAGE TRANSITION BOILERPLATE
+// + portable-transitions: copy reveals (SplitText), reveal lifecycle, selective ST kill
 // -----------------------------------------
 
 gsap.registerPlugin(CustomEase);
+if (typeof ScrollTrigger !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
+const hasSplitText = typeof SplitText !== "undefined";
+if (hasSplitText) {
+  gsap.registerPlugin(SplitText);
+}
 
 history.scrollRestoration = "manual";
 
@@ -24,8 +32,363 @@ let staggerDefault = 0.05;
 let durationDefault = 0.6;
 
 CustomEase.create("osmo", "0.625, 0.05, 0, 1");
-CustomEase.create("parallax", "0.7, 0.05, 0.13, 1");
+CustomEase.create("parallax", "0.87, 0, 0.13, 1");
 gsap.defaults({ ease: "osmo", duration: durationDefault });
+
+// -----------------------------------------
+// COPY REVEAL (from portable-transitions/copyReveal.ts)
+// -----------------------------------------
+
+/**
+ * @param {Element|string} container
+ * @param {{
+ *   variant?: 'rotate'|'flicker'|'slide',
+ *   splitType?: 'chars'|'words'|'lines',
+ *   animateOnScroll?: boolean,
+ *   delay?: number,
+ *   manual?: boolean
+ * }} [options]
+ */
+function initCopyReveal(container, options) {
+  options = options || {};
+  var variant = options.variant || "rotate";
+  var splitType = options.splitType || "chars";
+  var animateOnScroll = options.animateOnScroll !== false;
+  var delay = typeof options.delay === "number" ? options.delay : parseFloat(options.delay) || 0;
+  var manual = !!options.manual;
+
+  var root =
+    typeof container === "string"
+      ? document.querySelector(container)
+      : container;
+
+  var noop = function () {};
+  if (!root || !hasSplitText) {
+    return {
+      destroy: noop,
+      play: noop,
+      isInView: function () {
+        return false;
+      },
+      attachScrollTrigger: noop,
+    };
+  }
+
+  var scrollTriggers = [];
+  var pausedTween = null;
+  var tweenTargets = [];
+
+  var elements;
+  if (root.hasAttribute("data-copy-wrapper") && root.children.length > 0) {
+    elements = Array.prototype.slice.call(root.children);
+  } else {
+    elements = [root];
+  }
+
+  var splits = [];
+  var played = false;
+  var revealPlay = noop;
+
+  function play() {
+    if (played) return;
+    played = true;
+    revealPlay();
+  }
+
+  function isInView() {
+    var rect = root.getBoundingClientRect();
+    return rect.top < window.innerHeight && rect.bottom > 0;
+  }
+
+  function addScrollTrigger(config) {
+    var st = ScrollTrigger.create(config);
+    scrollTriggers.push(st);
+    return st;
+  }
+
+  var defaultTriggerStart = "top 90%";
+
+  function attachScrollTrigger(start) {
+    if (played || !root) return;
+    addScrollTrigger({
+      trigger: root,
+      start: start != null ? start : defaultTriggerStart,
+      once: true,
+      onEnter: function () {
+        play();
+      },
+    });
+  }
+
+  if (variant === "rotate") {
+    var allTargets = [];
+
+    elements.forEach(function (element) {
+      if (splitType === "lines") {
+        var split = SplitText.create(element, {
+          type: "lines",
+          linesClass: "copy-line",
+        });
+        splits.push(split);
+        allTargets.push.apply(allTargets, split.lines);
+      } else if (splitType === "words") {
+        var splitW = SplitText.create(element, {
+          type: "words",
+          wordsClass: "copy-word",
+        });
+        splits.push(splitW);
+        allTargets.push.apply(allTargets, splitW.words);
+      } else {
+        var splitC = SplitText.create(element, {
+          type: "words,chars",
+          wordsClass: "copy-word",
+          charsClass: "copy-char",
+        });
+        splits.push(splitC);
+        splitC.words.forEach(function (word) {
+          var chars = word.querySelectorAll(".copy-char");
+          for (var i = 0; i < chars.length; i++) {
+            allTargets.push(chars[i]);
+          }
+        });
+      }
+    });
+
+    gsap.set(elements, {
+      perspective: 700,
+      transformStyle: "preserve-3d",
+    });
+
+    gsap.set(allTargets, {
+      opacity: 0,
+      rotationX: -90,
+      transformOrigin: "50% 50% -50px",
+    });
+
+    tweenTargets.push.apply(tweenTargets, allTargets);
+
+    function playRotateReveal() {
+      var tl = gsap.timeline();
+
+      if (splitType === "lines") {
+        tl.to(allTargets, {
+          delay: delay,
+          rotationX: 0,
+          opacity: 1,
+          duration: 0.75,
+          ease: "power3.out",
+          stagger: 0.05,
+        });
+      } else if (splitType === "words") {
+        tl.to(allTargets, {
+          delay: delay,
+          rotationX: 0,
+          opacity: 1,
+          duration: 0.75,
+          ease: "power3.out",
+          stagger: { each: 0.035, from: "random" },
+        });
+      } else {
+        var allWords = [];
+        splits.forEach(function (split) {
+          split.words.forEach(function (word) {
+            allWords.push({
+              chars: Array.prototype.slice.call(word.querySelectorAll(".copy-char")),
+            });
+          });
+        });
+
+        allWords.forEach(function (w) {
+          var wordTl = gsap.timeline().to(w.chars, {
+            rotationX: 0,
+            opacity: 1,
+            duration: 0.75,
+            ease: "power3.out",
+            stagger: { each: 0.035, from: "random" },
+          });
+          tl.add(wordTl, delay + Math.random() * 0.4);
+        });
+      }
+
+      return tl;
+    }
+
+    revealPlay = function () {
+      playRotateReveal();
+    };
+
+    defaultTriggerStart = "top 90%";
+
+    if (manual) {
+      /* caller drives play / attachScrollTrigger */
+    } else if (animateOnScroll) {
+      attachScrollTrigger();
+    } else {
+      play();
+    }
+  }
+
+  if (variant === "flicker") {
+    var allChars = [];
+
+    elements.forEach(function (element) {
+      var splitF = SplitText.create(element, {
+        type: "chars",
+        charsClass: "copy-char",
+      });
+      splits.push(splitF);
+      allChars.push.apply(allChars, splitF.chars);
+    });
+
+    gsap.set(allChars, { opacity: 0 });
+    tweenTargets.push.apply(tweenTargets, allChars);
+
+    var flickerAnimation = gsap.to(allChars, {
+      delay: delay,
+      duration: 0.05,
+      opacity: 1,
+      ease: "power2.inOut",
+      stagger: { amount: 0.5, each: 0.1, from: "random" },
+      paused: true,
+    });
+
+    pausedTween = flickerAnimation;
+    revealPlay = function () {
+      flickerAnimation.play();
+    };
+
+    defaultTriggerStart = "top 85%";
+
+    if (manual) {
+    } else if (animateOnScroll) {
+      attachScrollTrigger();
+    } else {
+      play();
+    }
+  }
+
+  if (variant === "slide") {
+    gsap.set(elements, { y: 50, opacity: 0 });
+
+    var slideAnimation = gsap.to(elements, {
+      delay: delay,
+      y: 0,
+      opacity: 1,
+      duration: 0.75,
+      ease: "power3.out",
+      stagger: 0.1,
+      paused: true,
+    });
+
+    pausedTween = slideAnimation;
+    revealPlay = function () {
+      slideAnimation.play();
+    };
+
+    defaultTriggerStart = "top 90%";
+
+    if (manual) {
+    } else if (animateOnScroll) {
+      attachScrollTrigger();
+    } else {
+      play();
+    }
+  }
+
+  function destroy() {
+    scrollTriggers.forEach(function (st) {
+      st.kill();
+    });
+    scrollTriggers.length = 0;
+
+    if (pausedTween) {
+      pausedTween.kill();
+      pausedTween = null;
+    }
+
+    gsap.killTweensOf(elements.concat(tweenTargets));
+    splits.forEach(function (split) {
+      try {
+        split.revert();
+      } catch (e) {
+        /* DOM may already be gone */
+      }
+    });
+    splits.length = 0;
+  }
+
+  return { destroy: destroy, play: play, isInView: isInView, attachScrollTrigger: attachScrollTrigger };
+}
+
+// -----------------------------------------
+// COPY REVEAL MANAGER (from portable-transitions/app.ts)
+// -----------------------------------------
+
+/** @type {{ container: HTMLElement, destroy: () => void, play: () => void, isInView: () => boolean, attachScrollTrigger: (start?: string) => void }[]} */
+var revealEntries = [];
+
+function initCopyRevealsFor(container) {
+  if (!hasSplitText || !hasScrollTrigger) return;
+  var els = container.querySelectorAll("[data-copy-wrapper]");
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    var variant = el.dataset.copyVariant || "rotate";
+    var splitType = el.dataset.copySplit || "chars";
+    var copyDelay = parseFloat(el.dataset.copyDelay || "") || 0;
+    var handle = initCopyReveal(el, {
+      variant: variant,
+      splitType: splitType,
+      delay: copyDelay,
+      animateOnScroll: true,
+      manual: true,
+    });
+    revealEntries.push({ container: container, destroy: handle.destroy, play: handle.play, isInView: handle.isInView, attachScrollTrigger: handle.attachScrollTrigger });
+  }
+}
+
+function activateRevealsFor(container) {
+  for (var i = 0; i < revealEntries.length; i++) {
+    var entry = revealEntries[i];
+    if (entry.container !== container) continue;
+    if (entry.isInView()) {
+      entry.play();
+    } else {
+      entry.attachScrollTrigger();
+    }
+  }
+}
+
+function destroyAllReveals() {
+  for (var i = 0; i < revealEntries.length; i++) {
+    try {
+      revealEntries[i].destroy();
+    } catch (e) {
+      /* idempotent */
+    }
+  }
+  revealEntries.length = 0;
+}
+
+function destroyRevealsFor(container) {
+  if (!container) return;
+  var remaining = [];
+  for (var i = 0; i < revealEntries.length; i++) {
+    var entry = revealEntries[i];
+    if (entry.container === container) {
+      try {
+        entry.destroy();
+      } catch (e) {
+        /* idempotent */
+      }
+    } else {
+      remaining.push(entry);
+    }
+  }
+  revealEntries.length = 0;
+  for (var j = 0; j < remaining.length; j++) {
+    revealEntries.push(remaining[j]);
+  }
+}
 
 // -----------------------------------------
 // FUNCTION REGISTRY
@@ -42,6 +405,11 @@ function initOnceFunctions() {
 
 function initBeforeEnterFunctions(next) {
   nextPage = next || document;
+
+  destroyAllReveals();
+  if (next && next.nodeType === 1) {
+    initCopyRevealsFor(next);
+  }
 
   // Runs before the enter animation
   // if (has('[data-something]')) initSomething();
@@ -60,6 +428,10 @@ function initAfterEnterFunctions(next) {
   if (hasScrollTrigger) {
     ScrollTrigger.refresh();
   }
+
+  if (next && next.nodeType === 1) {
+    activateRevealsFor(next);
+  }
 }
 
 // -----------------------------------------
@@ -67,21 +439,30 @@ function initAfterEnterFunctions(next) {
 // -----------------------------------------
 
 function runPageOnceAnimation(next) {
-  const tl = gsap.timeline();
+  var tl = gsap.timeline();
 
-  tl.call(() => {
-    resetPage(next);
-  }, null, 0);
+  tl.call(
+    function () {
+      resetPage(next);
+      destroyAllReveals();
+      if (next && next.nodeType === 1) {
+        initCopyRevealsFor(next);
+        activateRevealsFor(next);
+      }
+    },
+    null,
+    0,
+  );
 
   return tl;
 }
 
 function runPageLeaveAnimation(current, next) {
-  const transitionWrap = document.querySelector("[data-transition-wrap]");
-  const transitionDark = transitionWrap?.querySelector("[data-transition-dark]");
+  var transitionWrap = document.querySelector("[data-transition-wrap]");
+  var transitionDark = transitionWrap?.querySelector("[data-transition-dark]");
 
-  const tl = gsap.timeline({
-    onComplete: () => {
+  var tl = gsap.timeline({
+    onComplete: function () {
       current.remove();
     },
   });
@@ -108,7 +489,7 @@ function runPageLeaveAnimation(current, next) {
       duration: 1.2,
       ease: "parallax",
     },
-    0
+    0,
   );
 
   tl.fromTo(
@@ -121,7 +502,7 @@ function runPageLeaveAnimation(current, next) {
       duration: 1.2,
       ease: "parallax",
     },
-    0
+    0,
   );
 
   tl.set(transitionDark, {
@@ -132,13 +513,22 @@ function runPageLeaveAnimation(current, next) {
 }
 
 function runPageEnterAnimation(next) {
-  const tl = gsap.timeline();
+  var tl = gsap.timeline();
 
   if (reducedMotion) {
     tl.set(next, { autoAlpha: 1 });
     tl.add("pageReady");
     tl.call(resetPage, [next], "pageReady");
-    return new Promise((resolve) => tl.call(resolve, null, "pageReady"));
+    tl.call(
+      function () {
+        if (hasScrollTrigger) ScrollTrigger.refresh();
+      },
+      null,
+      "pageReady",
+    );
+    return new Promise(function (resolve) {
+      tl.call(resolve, null, "pageReady");
+    });
   }
 
   tl.add("startEnter", 0);
@@ -158,13 +548,21 @@ function runPageEnterAnimation(next) {
       clearProps: "all",
       ease: "parallax",
     },
-    "startEnter"
+    "startEnter",
+  );
+
+  tl.call(
+    function () {
+      if (hasScrollTrigger) ScrollTrigger.refresh();
+    },
+    null,
+    "startEnter+=0.9",
   );
 
   tl.add("pageReady");
   tl.call(resetPage, [next], "pageReady");
 
-  return new Promise((resolve) => {
+  return new Promise(function (resolve) {
     tl.call(resolve, null, "pageReady");
   });
 }
@@ -189,9 +587,16 @@ barba.hooks.beforeEnter((data) => {
   applyThemeFrom(data.next.container);
 });
 
-barba.hooks.afterLeave(() => {
+barba.hooks.afterLeave((data) => {
+  var leaving = data.current.container;
+  destroyRevealsFor(leaving);
   if (hasScrollTrigger) {
-    ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+    ScrollTrigger.getAll().forEach(function (trigger) {
+      var el = trigger.trigger;
+      if (el instanceof Node && leaving.contains(el)) {
+        trigger.kill();
+      }
+    });
   }
 });
 
@@ -237,6 +642,8 @@ barba.init({
     },
   ],
 });
+
+initOnceFunctions();
 
 // -----------------------------------------
 // GENERIC + HELPERS
@@ -332,6 +739,15 @@ function initBarbaNavUpdate(data) {
 
     var newClassList = next.getAttribute("class") || "";
     curr.setAttribute("class", newClassList);
+
+    var newHref = next.getAttribute("href");
+    if (newHref !== null && curr.getAttribute("href") !== newHref) {
+      curr.setAttribute("href", newHref);
+    }
+
+    if (curr.innerHTML.trim() !== next.innerHTML.trim()) {
+      curr.innerHTML = next.innerHTML;
+    }
   });
 }
 

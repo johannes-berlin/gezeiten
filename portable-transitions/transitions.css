@@ -1,0 +1,18 @@
+/**
+ * Overlay used during leave (dark scrim + outgoing container motion).
+ * z-index must sit above page content but below fixed UI if you want nav always on top.
+ */
+[data-transition-wrap] {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+
+[data-transition-dark] {
+  position: absolute;
+  inset: 0;
+  /* Replace with your brand token */
+  background: #0a0a0a;
+  opacity: 0;
+}
