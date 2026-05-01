@@ -39,37 +39,6 @@ gsap.defaults({ ease: "osmo", duration: durationDefault });
 // COPY REVEAL (from portable-transitions/copyReveal.ts)
 // -----------------------------------------
 
-function normalizeCopyLineBoxes(lines) {
-  if (!lines || !lines.length) return;
-  var parent = lines[0].parentElement;
-  var lineHeightCss = "inherit";
-  if (parent) {
-    var cs = window.getComputedStyle(parent);
-    var lhPx = parseFloat(cs.lineHeight);
-    var fsPx = parseFloat(cs.fontSize);
-    if (!isNaN(fsPx) && fsPx > 0) {
-      var minLhPx = fsPx * 1.45;
-      if (!isNaN(lhPx) && lhPx > 0) {
-        lineHeightCss = Math.max(lhPx, minLhPx) + "px";
-      } else {
-        lineHeightCss = minLhPx + "px";
-      }
-    } else if (cs.lineHeight && cs.lineHeight !== "normal") {
-      lineHeightCss = cs.lineHeight;
-    }
-  }
-  gsap.set(lines, {
-    display: "block",
-    marginTop: 0,
-    marginBottom: 0,
-    marginLeft: 0,
-    marginRight: 0,
-    paddingTop: 0,
-    paddingBottom: 0,
-    lineHeight: lineHeightCss,
-  });
-}
-
 function normalizeRichTextParagraphsForSplit(container) {
   if (!container || !container.querySelectorAll) return;
   var ps = container.querySelectorAll(".u-text.u-rich-text p");
@@ -244,7 +213,6 @@ function initCopyReveal(container, options) {
           linesClass: "copy-line",
         });
         splits.push(split);
-        normalizeCopyLineBoxes(split.lines);
         allTargets.push.apply(allTargets, split.lines);
       } else if (splitType === "words") {
         var splitW = SplitText.create(element, {
@@ -269,16 +237,26 @@ function initCopyReveal(container, options) {
       }
     });
 
-    gsap.set(elements, {
-      perspective: 700,
-      transformStyle: "preserve-3d",
-    });
-
-    gsap.set(allTargets, {
-      opacity: 0,
-      rotationX: -90,
-      transformOrigin: "50% 50% -50px",
-    });
+    /* Lines: kein rotationX / perspective — 3D auf Zeilen-Boxen wirkt wie Überlappung.
+       Chars/Words: unverändert Osmo-3D-Rotate. */
+    if (splitType === "lines") {
+      gsap.set(allTargets, {
+        opacity: 0,
+        y: 20,
+        rotationX: 0,
+        transformOrigin: "50% 50% 0",
+      });
+    } else {
+      gsap.set(elements, {
+        perspective: 700,
+        transformStyle: "preserve-3d",
+      });
+      gsap.set(allTargets, {
+        opacity: 0,
+        rotationX: -90,
+        transformOrigin: "50% 50% -50px",
+      });
+    }
 
     tweenTargets.push.apply(tweenTargets, allTargets);
 
@@ -288,7 +266,7 @@ function initCopyReveal(container, options) {
       if (splitType === "lines") {
         tl.to(allTargets, {
           delay: delay,
-          rotationX: 0,
+          y: 0,
           opacity: 1,
           duration: 0.75,
           ease: "power3.out",
