@@ -775,6 +775,105 @@ function initCaseWrapScroll(scopeRoot) {
 }
 
 // -----------------------------------------
+// GLOBAL PARALLAX — [data-parallax="trigger"] (+ optional target / attrs)
+// -----------------------------------------
+
+var globalParallaxMM = null;
+
+function destroyGlobalParallax() {
+  if (globalParallaxMM) {
+    globalParallaxMM.kill();
+    globalParallaxMM = null;
+  }
+}
+
+function initGlobalParallax() {
+  if (!hasScrollTrigger) return;
+  if (reducedMotion) return;
+  if (typeof gsap.matchMedia !== "function") return;
+
+  destroyGlobalParallax();
+
+  globalParallaxMM = gsap.matchMedia();
+
+  globalParallaxMM.add(
+    {
+      isMobile: "(max-width:479px)",
+      isMobileLandscape: "(max-width:767px)",
+      isTablet: "(max-width:991px)",
+      isDesktop: "(min-width:992px)",
+    },
+    function (context) {
+      var cond = context.conditions || {};
+      var isMobile = !!cond.isMobile;
+      var isMobileLandscape = !!cond.isMobileLandscape;
+      var isTablet = !!cond.isTablet;
+
+      var ctx = gsap.context(function () {
+        document
+          .querySelectorAll('[data-parallax="trigger"]')
+          .forEach(function (trigger) {
+            var disable = trigger.getAttribute("data-parallax-disable");
+            if (
+              (disable === "mobile" && isMobile) ||
+              (disable === "mobileLandscape" && isMobileLandscape) ||
+              (disable === "tablet" && isTablet)
+            ) {
+              return;
+            }
+
+            var targetEl =
+              trigger.querySelector('[data-parallax="target"]') || trigger;
+
+            var direction =
+              trigger.getAttribute("data-parallax-direction") || "vertical";
+            var prop =
+              direction === "horizontal" ? "xPercent" : "yPercent";
+
+            var scrubAttr = trigger.getAttribute("data-parallax-scrub");
+            var scrub = scrubAttr ? parseFloat(scrubAttr) : true;
+
+            var startAttr = trigger.getAttribute("data-parallax-start");
+            var startVal =
+              startAttr !== null ? parseFloat(startAttr) : 20;
+
+            var endAttr = trigger.getAttribute("data-parallax-end");
+            var endVal = endAttr !== null ? parseFloat(endAttr) : -20;
+
+            var scrollStartRaw =
+              trigger.getAttribute("data-parallax-scroll-start") ||
+              "top bottom";
+            var scrollStart = "clamp(" + scrollStartRaw + ")";
+
+            var scrollEndRaw =
+              trigger.getAttribute("data-parallax-scroll-end") || "bottom top";
+            var scrollEnd = "clamp(" + scrollEndRaw + ")";
+
+            var fromVars = {};
+            fromVars[prop] = startVal;
+            var toVars = {
+              ease: "none",
+              scrollTrigger: {
+                trigger: trigger,
+                start: scrollStart,
+                end: scrollEnd,
+                scrub: scrub,
+              },
+            };
+            toVars[prop] = endVal;
+
+            gsap.fromTo(targetEl, fromVars, toVars);
+          });
+      });
+
+      return function () {
+        ctx.revert();
+      };
+    },
+  );
+}
+
+// -----------------------------------------
 // FUNCTION REGISTRY
 // -----------------------------------------
 
@@ -823,6 +922,7 @@ function initAfterEnterFunctions(next) {
   }
 
   initNavII();
+  initGlobalParallax();
 }
 
 // -----------------------------------------
@@ -987,6 +1087,8 @@ barba.hooks.beforeLeave(() => {
 });
 
 barba.hooks.afterLeave((data) => {
+  destroyGlobalParallax();
+
   var leaving = data.current.container;
   destroyEleganceFor(leaving);
   destroyRevealsFor(leaving);
@@ -1042,6 +1144,7 @@ barba.init({
 initOnceFunctions();
 initNavII();
 initCaseWrapScroll(document);
+initGlobalParallax();
 
 // -----------------------------------------
 // GENERIC + HELPERS
