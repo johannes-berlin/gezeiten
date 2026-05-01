@@ -391,6 +391,104 @@ function destroyRevealsFor(container) {
 }
 
 // -----------------------------------------
+// ELEGANCE TEXT REVEAL — [data-reveal="elegance"] (SplitText chars + ScrollTrigger)
+// -----------------------------------------
+
+/** @type {{ container: HTMLElement, destroy: () => void }[]} */
+var eleganceEntries = [];
+
+function destroyAllElegance() {
+  for (var i = 0; i < eleganceEntries.length; i++) {
+    try {
+      eleganceEntries[i].destroy();
+    } catch (e) {
+      /* idempotent */
+    }
+  }
+  eleganceEntries.length = 0;
+}
+
+function destroyEleganceFor(container) {
+  if (!container) return;
+  var remaining = [];
+  for (var i = 0; i < eleganceEntries.length; i++) {
+    var entry = eleganceEntries[i];
+    if (entry.container === container) {
+      try {
+        entry.destroy();
+      } catch (e) {
+        /* idempotent */
+      }
+    } else {
+      remaining.push(entry);
+    }
+  }
+  eleganceEntries.length = 0;
+  for (var j = 0; j < remaining.length; j++) {
+    eleganceEntries.push(remaining[j]);
+  }
+}
+
+function initEleganceRevealsFor(container) {
+  if (!hasSplitText || !hasScrollTrigger) return;
+  if (reducedMotion) return;
+
+  var roots = container.querySelectorAll('[data-reveal="elegance"]');
+  for (var i = 0; i < roots.length; i++) {
+    var root = roots[i];
+    try {
+      var split = SplitText.create(root, {
+        type: "chars",
+        charsClass: "reveal-elegance-char",
+      });
+      var chars = split.chars;
+      gsap.set(chars, {
+        opacity: 0,
+        filter: "blur(8px)",
+        y: 20,
+      });
+
+      var st = ScrollTrigger.create({
+        trigger: root,
+        start: "top 80%",
+        once: true,
+        onEnter: function () {
+          gsap.to(chars, {
+            opacity: 1,
+            filter: "blur(0px)",
+            y: 0,
+            duration: 0.6,
+            stagger: 0.05,
+            delay: 0.35,
+            ease: "power2.out",
+            onComplete: function () {
+              requestAnimationFrame(function () {
+                ScrollTrigger.refresh();
+              });
+            },
+          });
+        },
+      });
+
+      eleganceEntries.push({
+        container: container,
+        destroy: function () {
+          st.kill();
+          gsap.killTweensOf(chars);
+          try {
+            split.revert();
+          } catch (err) {
+            /* DOM may already be gone */
+          }
+        },
+      });
+    } catch (err) {
+      console.warn("[gezeiten] initEleganceReveal skipped", root, err);
+    }
+  }
+}
+
+// -----------------------------------------
 // NAV II — mobile drawer (idempotent per .navII_wrap)
 // -----------------------------------------
 
@@ -514,8 +612,10 @@ function initBeforeEnterFunctions(next) {
   nextPage = next || document;
 
   destroyAllReveals();
+  destroyAllElegance();
   if (next && next.nodeType === 1) {
     initCopyRevealsFor(next);
+    initEleganceRevealsFor(next);
   }
 
   // Runs before the enter animation
@@ -554,8 +654,10 @@ function runPageOnceAnimation(next) {
     function () {
       resetPage(next);
       destroyAllReveals();
+      destroyAllElegance();
       if (next && next.nodeType === 1) {
         initCopyRevealsFor(next);
+        initEleganceRevealsFor(next);
         activateRevealsFor(next);
       }
     },
@@ -702,6 +804,7 @@ barba.hooks.beforeLeave(() => {
 
 barba.hooks.afterLeave((data) => {
   var leaving = data.current.container;
+  destroyEleganceFor(leaving);
   destroyRevealsFor(leaving);
   if (hasScrollTrigger) {
     ScrollTrigger.getAll().forEach(function (trigger) {
