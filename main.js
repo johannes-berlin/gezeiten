@@ -42,11 +42,20 @@ gsap.defaults({ ease: "osmo", duration: durationDefault });
 function normalizeCopyLineBoxes(lines) {
   if (!lines || !lines.length) return;
   var parent = lines[0].parentElement;
-  var lh = "inherit";
+  var lineHeightCss = "inherit";
   if (parent) {
     var cs = window.getComputedStyle(parent);
-    if (cs.lineHeight && cs.lineHeight !== "normal") {
-      lh = cs.lineHeight;
+    var lhPx = parseFloat(cs.lineHeight);
+    var fsPx = parseFloat(cs.fontSize);
+    if (!isNaN(fsPx) && fsPx > 0) {
+      var minLhPx = fsPx * 1.45;
+      if (!isNaN(lhPx) && lhPx > 0) {
+        lineHeightCss = Math.max(lhPx, minLhPx) + "px";
+      } else {
+        lineHeightCss = minLhPx + "px";
+      }
+    } else if (cs.lineHeight && cs.lineHeight !== "normal") {
+      lineHeightCss = cs.lineHeight;
     }
   }
   gsap.set(lines, {
@@ -57,7 +66,7 @@ function normalizeCopyLineBoxes(lines) {
     marginRight: 0,
     paddingTop: 0,
     paddingBottom: 0,
-    lineHeight: lh,
+    lineHeight: lineHeightCss,
   });
 }
 
