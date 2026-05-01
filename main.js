@@ -237,26 +237,16 @@ function initCopyReveal(container, options) {
       }
     });
 
-    /* Lines: kein rotationX / perspective — 3D auf Zeilen-Boxen wirkt wie Überlappung.
-       Chars/Words: unverändert Osmo-3D-Rotate. */
-    if (splitType === "lines") {
-      gsap.set(allTargets, {
-        opacity: 0,
-        y: 20,
-        rotationX: 0,
-        transformOrigin: "50% 50% 0",
-      });
-    } else {
-      gsap.set(elements, {
-        perspective: 700,
-        transformStyle: "preserve-3d",
-      });
-      gsap.set(allTargets, {
-        opacity: 0,
-        rotationX: -90,
-        transformOrigin: "50% 50% -50px",
-      });
-    }
+    gsap.set(elements, {
+      perspective: 700,
+      transformStyle: "preserve-3d",
+    });
+
+    gsap.set(allTargets, {
+      opacity: 0,
+      rotationX: -90,
+      transformOrigin: "50% 50% -50px",
+    });
 
     tweenTargets.push.apply(tweenTargets, allTargets);
 
@@ -266,7 +256,7 @@ function initCopyReveal(container, options) {
       if (splitType === "lines") {
         tl.to(allTargets, {
           delay: delay,
-          y: 0,
+          rotationX: 0,
           opacity: 1,
           duration: 0.75,
           ease: "power3.out",
