@@ -704,6 +704,77 @@ function closeAllNavIIDrawers() {
 }
 
 // -----------------------------------------
+// CASE — sticky details list scrub (desktop / sticky only)
+// -----------------------------------------
+
+function initCaseWrapScroll(scopeRoot) {
+  if (!hasScrollTrigger) return;
+
+  var root =
+    scopeRoot && scopeRoot.nodeType === 1 ? scopeRoot : document;
+
+  root.querySelectorAll(".case_wrap").forEach(function (component) {
+    if (component.dataset.scriptInitialized) return;
+    component.dataset.scriptInitialized = "true";
+
+    var list = component.querySelector(".case_details_list");
+    var parent = component.querySelector(".case_details_wrap");
+    if (!list || !parent) return;
+
+    function isDesktop() {
+      var stickyApplied = getComputedStyle(parent).position === "sticky";
+      return stickyApplied && !reducedMotion;
+    }
+
+    var tween = null;
+    var trigger = null;
+
+    function build() {
+      if (tween) {
+        tween.kill();
+        tween = null;
+      }
+      if (trigger) {
+        trigger.kill();
+        trigger = null;
+      }
+      gsap.set(list, { y: 0 });
+      if (!isDesktop()) return;
+
+      var moveAmount = list.offsetHeight - parent.offsetHeight;
+      if (moveAmount <= 0) return;
+
+      tween = gsap.to(list, {
+        y: -moveAmount,
+        ease: "none",
+        scrollTrigger: {
+          trigger: component,
+          start: "top top",
+          end: "bottom bottom",
+          scrub: true,
+        },
+      });
+      trigger = tween.scrollTrigger;
+    }
+
+    build();
+
+    var resizeId;
+    window.addEventListener("resize", function caseWrapOnResize() {
+      if (!component.isConnected) {
+        window.removeEventListener("resize", caseWrapOnResize);
+        return;
+      }
+      clearTimeout(resizeId);
+      resizeId = setTimeout(function () {
+        build();
+        if (hasScrollTrigger) ScrollTrigger.refresh();
+      }, 150);
+    });
+  });
+}
+
+// -----------------------------------------
 // FUNCTION REGISTRY
 // -----------------------------------------
 
@@ -748,6 +819,7 @@ function initAfterEnterFunctions(next) {
 
   if (next && next.nodeType === 1) {
     activateRevealsFor(next);
+    initCaseWrapScroll(next);
   }
 
   initNavII();
@@ -969,6 +1041,7 @@ barba.init({
 
 initOnceFunctions();
 initNavII();
+initCaseWrapScroll(document);
 
 // -----------------------------------------
 // GENERIC + HELPERS
