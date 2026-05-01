@@ -516,10 +516,20 @@ function initEleganceRevealsFor(container) {
   if (!hasSplitText || !hasScrollTrigger) return;
   if (reducedMotion) return;
 
+  /* Skip subtree only when scanning page content — nav roots live here too if nested.
+     When container IS [data-anim-nav], descendants still closest-match → must NOT skip. */
+  var skipRootsInsideAnimNav =
+    !(container.matches && container.matches("[data-anim-nav]"));
+
   var roots = container.querySelectorAll('[data-reveal="elegance"]');
   for (var i = 0; i < roots.length; i++) {
     var root = roots[i];
-    if (root.closest && root.closest("[data-anim-nav]")) continue;
+    if (
+      skipRootsInsideAnimNav &&
+      root.closest &&
+      root.closest("[data-anim-nav]")
+    )
+      continue;
 
     try {
       var split = SplitText.create(root, {
