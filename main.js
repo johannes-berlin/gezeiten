@@ -61,6 +61,14 @@ function normalizeCopyLineBoxes(lines) {
   });
 }
 
+function normalizeRichTextParagraphsForSplit(container) {
+  if (!container || !container.querySelectorAll) return;
+  var ps = container.querySelectorAll(".u-text.u-rich-text p");
+  if (ps.length) {
+    gsap.set(ps, { margin: 0, display: "inline" });
+  }
+}
+
 /**
  * @param {Element|string} container — target node or selector
  * @param {{
@@ -718,6 +726,7 @@ function initBeforeEnterFunctions(next) {
   destroyAllReveals();
   destroyAllElegance();
   if (next && next.nodeType === 1) {
+    normalizeRichTextParagraphsForSplit(next);
     initCopyRevealsFor(next);
     initEleganceRevealsFor(next);
   }
@@ -760,6 +769,7 @@ function runPageOnceAnimation(next) {
       destroyAllReveals();
       destroyAllElegance();
       if (next && next.nodeType === 1) {
+        normalizeRichTextParagraphsForSplit(next);
         initCopyRevealsFor(next);
         initEleganceRevealsFor(next);
         activateRevealsFor(next);
