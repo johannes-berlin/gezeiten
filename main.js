@@ -40,7 +40,7 @@ gsap.defaults({ ease: "osmo", duration: durationDefault });
 // -----------------------------------------
 
 /**
- * @param {Element|string} container
+ * @param {Element|string} container — target node or selector
  * @param {{
  *   variant?: 'rotate'|'flicker'|'slide',
  *   splitType?: 'chars'|'words'|'lines',
@@ -48,6 +48,10 @@ gsap.defaults({ ease: "osmo", duration: durationDefault });
  *   delay?: number,
  *   manual?: boolean
  * }} [options]
+ *
+ * If `data-copy-wrapper` has element children, each child is initialised separately
+ * (merged options: child `data-copy-*` overrides wrapper defaults). Children with
+ * `data-reveal="elegance"` are skipped here (handled by initEleganceRevealsFor).
  */
 function initCopyReveal(container, options) {
   options = options || {};
@@ -74,16 +78,86 @@ function initCopyReveal(container, options) {
     };
   }
 
+  var isCopyWrapper = root.hasAttribute && root.hasAttribute("data-copy-wrapper");
+  var childNodes =
+    isCopyWrapper && root.children && root.children.length
+      ? Array.prototype.slice.call(root.children).filter(function (child) {
+          return !(child.matches && child.matches('[data-reveal="elegance"]'));
+        })
+      : [];
+
+  if (isCopyWrapper && root.children && root.children.length > 0 && childNodes.length === 0) {
+    return {
+      destroy: noop,
+      play: noop,
+      isInView: function () {
+        return false;
+      },
+      attachScrollTrigger: noop,
+    };
+  }
+
+  if (isCopyWrapper && childNodes.length > 0) {
+    var handles = [];
+    for (var ci = 0; ci < childNodes.length; ci++) {
+      var ch = childNodes[ci];
+      var childVariant = ch.dataset.copyVariant || variant;
+      var childSplit = ch.dataset.copySplit || splitType;
+      var childDelay =
+        ch.dataset.copyDelay !== undefined && String(ch.dataset.copyDelay).trim() !== ""
+          ? parseFloat(ch.dataset.copyDelay) || 0
+          : delay;
+      handles.push(
+        initCopyReveal(ch, {
+          variant: childVariant,
+          splitType: childSplit,
+          delay: childDelay,
+          animateOnScroll: animateOnScroll,
+          manual: manual,
+        }),
+      );
+    }
+    return {
+      destroy: function () {
+        handles.forEach(function (h) {
+          h.destroy();
+        });
+      },
+      play: function () {
+        handles.forEach(function (h) {
+          h.play();
+        });
+      },
+      isInView: function () {
+        for (var hi = 0; hi < handles.length; hi++) {
+          if (handles[hi].isInView()) return true;
+        }
+        return false;
+      },
+      attachScrollTrigger: function (start) {
+        handles.forEach(function (h) {
+          h.attachScrollTrigger(start);
+        });
+      },
+    };
+  }
+
+  var elements = [root];
+
+  if (root.matches && root.matches('[data-reveal="elegance"]')) {
+    return {
+      destroy: noop,
+      play: noop,
+      isInView: function () {
+        return false;
+      },
+      attachScrollTrigger: noop,
+    };
+  }
+
   var scrollTriggers = [];
   var pausedTween = null;
   var tweenTargets = [];
-
-  var elements;
-  if (root.hasAttribute("data-copy-wrapper") && root.children.length > 0) {
-    elements = Array.prototype.slice.call(root.children);
-  } else {
-    elements = [root];
-  }
 
   var splits = [];
   var played = false;
@@ -329,7 +403,7 @@ var revealEntries = [];
 
 function initCopyRevealsFor(container) {
   if (!hasSplitText || !hasScrollTrigger) return;
-  var els = container.querySelectorAll("[data-copy-wrapper]");
+  var els = container.querySelectorAll("[data-copy-wrapper]:not([data-reveal=\"elegance\"])");
   for (var i = 0; i < els.length; i++) {
     var el = els[i];
     var variant = el.dataset.copyVariant || "rotate";
@@ -443,6 +517,7 @@ function initEleganceRevealsFor(container) {
       });
       var chars = split.chars;
       gsap.set(chars, {
+        display: "inline-block",
         opacity: 0,
         filter: "blur(8px)",
         y: 20,
@@ -485,6 +560,12 @@ function initEleganceRevealsFor(container) {
     } catch (err) {
       console.warn("[gezeiten] initEleganceReveal skipped", root, err);
     }
+  }
+
+  if (roots.length && hasScrollTrigger) {
+    requestAnimationFrame(function () {
+      ScrollTrigger.refresh();
+    });
   }
 }
 
