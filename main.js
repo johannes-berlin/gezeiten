@@ -39,6 +39,28 @@ gsap.defaults({ ease: "osmo", duration: durationDefault });
 // COPY REVEAL (from portable-transitions/copyReveal.ts)
 // -----------------------------------------
 
+function normalizeCopyLineBoxes(lines) {
+  if (!lines || !lines.length) return;
+  var parent = lines[0].parentElement;
+  var lh = "inherit";
+  if (parent) {
+    var cs = window.getComputedStyle(parent);
+    if (cs.lineHeight && cs.lineHeight !== "normal") {
+      lh = cs.lineHeight;
+    }
+  }
+  gsap.set(lines, {
+    display: "block",
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    marginRight: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    lineHeight: lh,
+  });
+}
+
 /**
  * @param {Element|string} container — target node or selector
  * @param {{
@@ -204,6 +226,7 @@ function initCopyReveal(container, options) {
           linesClass: "copy-line",
         });
         splits.push(split);
+        normalizeCopyLineBoxes(split.lines);
         allTargets.push.apply(allTargets, split.lines);
       } else if (splitType === "words") {
         var splitW = SplitText.create(element, {
