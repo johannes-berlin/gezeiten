@@ -519,6 +519,8 @@ function initEleganceRevealsFor(container) {
   var roots = container.querySelectorAll('[data-reveal="elegance"]');
   for (var i = 0; i < roots.length; i++) {
     var root = roots[i];
+    if (root.closest && root.closest("[data-anim-nav]")) continue;
+
     try {
       var split = SplitText.create(root, {
         type: "chars",
@@ -576,6 +578,12 @@ function initEleganceRevealsFor(container) {
       ScrollTrigger.refresh();
     });
   }
+}
+
+function initEleganceRevealsForAllAnimNav() {
+  document.querySelectorAll("[data-anim-nav]").forEach(function (navRoot) {
+    initEleganceRevealsFor(navRoot);
+  });
 }
 
 // -----------------------------------------
@@ -708,6 +716,7 @@ function initBeforeEnterFunctions(next) {
     initCopyRevealsFor(next);
     initEleganceRevealsFor(next);
   }
+  initEleganceRevealsForAllAnimNav();
 
   // Runs before the enter animation
   // if (has('[data-something]')) initSomething();
@@ -752,6 +761,7 @@ function runPageOnceAnimation(next) {
         initEleganceRevealsFor(next);
         activateRevealsFor(next);
       }
+      initEleganceRevealsForAllAnimNav();
     },
     null,
     0,
