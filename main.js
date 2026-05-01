@@ -65,7 +65,8 @@ function normalizeRichTextParagraphsForSplit(container) {
   if (!container || !container.querySelectorAll) return;
   var ps = container.querySelectorAll(".u-text.u-rich-text p");
   if (ps.length) {
-    gsap.set(ps, { margin: 0, display: "inline" });
+    /* Nur Margin — kein display:inline: sonst spannen .copy-line-Zeilen nicht als Block auf. */
+    gsap.set(ps, { margin: 0, display: "block" });
   }
 }
 
