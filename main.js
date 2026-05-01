@@ -391,6 +391,113 @@ function destroyRevealsFor(container) {
 }
 
 // -----------------------------------------
+// NAV II — mobile drawer (idempotent per .navII_wrap)
+// -----------------------------------------
+
+function initNavII() {
+  document.querySelectorAll(".navII_wrap").forEach(function (component) {
+    if (component.dataset.scriptInitialized) return;
+    component.dataset.scriptInitialized = "true";
+
+    var toggle = component.querySelector(".navII_toggle_wrap");
+    var drawer = component.querySelector(".navII_mobile_wrap");
+    if (!toggle || !drawer) return;
+
+    var focusableSelector =
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    function isOpen() {
+      return toggle.getAttribute("aria-expanded") === "true";
+    }
+
+    function openMenu() {
+      toggle.setAttribute("aria-expanded", "true");
+      toggle.setAttribute("aria-label", "Close menu");
+      toggle.classList.add("is-active");
+      drawer.classList.add("is-active");
+      component.classList.add("is-active");
+      document.body.style.overflow = "hidden";
+      var firstLink = drawer.querySelector(focusableSelector);
+      if (firstLink) {
+        window.requestAnimationFrame(function () {
+          firstLink.focus();
+        });
+      }
+    }
+
+    function closeMenu() {
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.setAttribute("aria-label", "Open menu");
+      toggle.classList.remove("is-active");
+      drawer.classList.remove("is-active");
+      component.classList.remove("is-active");
+      document.body.style.overflow = "";
+      toggle.focus();
+    }
+
+    toggle.addEventListener("click", function () {
+      if (isOpen()) closeMenu();
+      else openMenu();
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && isOpen()) closeMenu();
+    });
+
+    drawer.addEventListener("click", function (event) {
+      var el = event.target;
+      if (el && el.nodeType !== 1) el = el.parentElement;
+      if (el && el.closest && el.closest("a")) closeMenu();
+    });
+
+    drawer.addEventListener("keydown", function (event) {
+      if (event.key !== "Tab" || !isOpen()) return;
+      var focusables = drawer.querySelectorAll(focusableSelector);
+      if (!focusables.length) return;
+      var first = focusables[0];
+      var last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+
+    function checkViewport() {
+      var display = getComputedStyle(toggle).display;
+      if (display === "none" && isOpen()) closeMenu();
+    }
+
+    window.addEventListener("resize", checkViewport);
+  });
+}
+
+function closeAllNavIIDrawers() {
+  document.querySelectorAll(".navII_wrap").forEach(function (component) {
+    var toggle = component.querySelector(".navII_toggle_wrap");
+    var drawer = component.querySelector(".navII_mobile_wrap");
+    if (!toggle || !drawer) return;
+
+    var appearsOpen =
+      toggle.getAttribute("aria-expanded") === "true" ||
+      component.classList.contains("is-active") ||
+      drawer.classList.contains("is-active");
+
+    if (!appearsOpen) return;
+
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-label", "Open menu");
+    toggle.classList.remove("is-active");
+    drawer.classList.remove("is-active");
+    component.classList.remove("is-active");
+  });
+
+  document.body.style.overflow = "";
+}
+
+// -----------------------------------------
 // FUNCTION REGISTRY
 // -----------------------------------------
 
@@ -432,6 +539,8 @@ function initAfterEnterFunctions(next) {
   if (next && next.nodeType === 1) {
     activateRevealsFor(next);
   }
+
+  initNavII();
 }
 
 // -----------------------------------------
@@ -587,6 +696,10 @@ barba.hooks.beforeEnter((data) => {
   applyThemeFrom(data.next.container);
 });
 
+barba.hooks.beforeLeave(() => {
+  closeAllNavIIDrawers();
+});
+
 barba.hooks.afterLeave((data) => {
   var leaving = data.current.container;
   destroyRevealsFor(leaving);
@@ -598,10 +711,6 @@ barba.hooks.afterLeave((data) => {
       }
     });
   }
-});
-
-barba.hooks.enter((data) => {
-  initBarbaNavUpdate(data);
 });
 
 barba.hooks.afterEnter((data) => {
@@ -644,6 +753,7 @@ barba.init({
 });
 
 initOnceFunctions();
+initNavII();
 
 // -----------------------------------------
 // GENERIC + HELPERS
@@ -651,11 +761,9 @@ initOnceFunctions();
 
 const themeConfig = {
   light: {
-    nav: "dark",
     transition: "light",
   },
   dark: {
-    nav: "light",
     transition: "dark",
   },
 };
@@ -668,11 +776,6 @@ function applyThemeFrom(container) {
   const transitionEl = document.querySelector("[data-theme-transition]");
   if (transitionEl) {
     transitionEl.dataset.themeTransition = config.transition;
-  }
-
-  const nav = document.querySelector("[data-theme-nav]");
-  if (nav) {
-    nav.dataset.themeNav = config.nav;
   }
 }
 
@@ -718,37 +821,6 @@ function debounceOnWidthChange(fn, ms) {
       }
     }, ms);
   };
-}
-
-function initBarbaNavUpdate(data) {
-  var tpl = document.createElement("template");
-  tpl.innerHTML = data.next.html.trim();
-  var nextNodes = tpl.content.querySelectorAll("[data-barba-update]");
-  var currentNodes = document.querySelectorAll("nav [data-barba-update]");
-
-  currentNodes.forEach(function (curr, index) {
-    var next = nextNodes[index];
-    if (!next) return;
-
-    var newStatus = next.getAttribute("aria-current");
-    if (newStatus !== null) {
-      curr.setAttribute("aria-current", newStatus);
-    } else {
-      curr.removeAttribute("aria-current");
-    }
-
-    var newClassList = next.getAttribute("class") || "";
-    curr.setAttribute("class", newClassList);
-
-    var newHref = next.getAttribute("href");
-    if (newHref !== null && curr.getAttribute("href") !== newHref) {
-      curr.setAttribute("href", newHref);
-    }
-
-    if (curr.innerHTML.trim() !== next.innerHTML.trim()) {
-      curr.innerHTML = next.innerHTML;
-    }
-  });
 }
 
 // -----------------------------------------
